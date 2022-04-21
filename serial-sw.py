@@ -33,7 +33,6 @@ def rand_DNA(desired_length):
     return DNA
 
 
-
 def fill_alignment_matrix(query, reference):
     """
     Creates the alignment matrix. 
@@ -229,8 +228,15 @@ if __name__ == "__main__":
     # test case from wikipedia: 
     smith_waterman(query="GGTTGACTA", reference="TGTTACGG")
 
-    # test it on two random DNA sequences 
-    smith_waterman( rand_DNA(1000), rand_DNA(1010), verbose= False)
+    print("Scaling Tests: ------------------------------------------ ")
+
+    #testing on random DNA sequences 
+    smith_waterman( rand_DNA(10), rand_DNA(10), verbose= False)
+    smith_waterman( rand_DNA(100), rand_DNA(100), verbose= False)
+    smith_waterman( rand_DNA(1000), rand_DNA(1000), verbose= False)
+    smith_waterman( rand_DNA(10000), rand_DNA(10000), verbose= False) # this takes about 6 min
+
+
 
 
 
