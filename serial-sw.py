@@ -24,13 +24,8 @@ def print_matrix(alignment_matrix, query, reference):
 
 def rand_DNA(desired_length):
     """ helper for generating random dna sequences """
-
-    DNA=""
-    for i in range(desired_length):
-
-        DNA += choice("CGTA")
     
-    return DNA
+    return ''.join(np.random.choice(['C', 'T', 'G', 'A'], desired_length))
 
 
 def fill_alignment_matrix(query, reference):
