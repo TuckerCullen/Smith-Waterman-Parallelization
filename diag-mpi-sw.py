@@ -10,6 +10,12 @@ GAP_PENALTY = -2
 MISMATCH_PENALTY = -3
 MATCH_REWARD = 3
 
+### MPI INITIALIZATION ###
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+size = comm.Get_size()
+
+
 def print_matrix(alignment_matrix, query, reference):
     """ helper function for printing matrix with nuclotide labels"""
 
@@ -221,7 +227,10 @@ def traceback_iterative(alignment_matrix, position, aligned_query, aligned_ref, 
 
 
 
-####################################################################
+###################################################################################
+########################### PARALLEL FUNCITONS BELOW ##############################
+
+
 def fill_alignment_matrix_mpi(query, reference):
 
     M = len(query)
@@ -229,53 +238,101 @@ def fill_alignment_matrix_mpi(query, reference):
 
     # alignment_matrix = np.zeros(shape=(M+1, N+1))
 
+    # calculate how many times each processor needs to run 
+    iters = N // (size - 1)
+    leftovers = N % (size - 1)
+
     if rank != 0 and rank <= N:
 
-        print("Call diagnonal_wavfront on rank ", rank)
+        # print("Call diagnonal_wavefront on rank ", rank)
 
+        # all the processors will need to run on "iters" number of columns. 
+        if rank <= leftovers:
+            iters_left = iters + 1
+
+        # some processors need to run one more time to finish up the last few columns 
+        else:
+            iters_left = iters
+            
         col = []
-        diagonal_wavefront(col, query, reference)
+        diagonal_wavefront(col, query, reference, cur_col_index=rank-1, iters_left=iters_left)
 
 
     if rank == 0:
 
         alignment_lists = []
-        for p in range(1, N+1):
 
+        while iters > 0:
+
+            for p in range(1, size):
+                col = comm.recv(source=p, tag=p)
+                alignment_lists.append(col)
+            iters -= 1
+
+        # recieve the last few columns 
+        for p in range(1, leftovers + 1):
             col = comm.recv(source=p, tag=p)
-
             alignment_lists.append(col)
 
-            alignment_matrix = np.array(alignment_lists).T
 
-            alignment_matrix = np.pad(alignment_matrix, ((1, 0), (1, 0)), 'constant')
+        alignment_matrix = np.array(alignment_lists).T
+
+        alignment_matrix = np.pad(alignment_matrix, ((1, 0), (1, 0)), 'constant')
 
         return alignment_matrix
 
 
-def diagonal_wavefront(col : list, query, reference, diag=0, up=0, step=0):
+def diagonal_wavefront(col : list, query : str, reference : str, iters_left, cur_col_index, diag=0, up=0, step=0, first_pass=True):
+
+    """
+    Arguments:
+        col : list - the list of alignment scores for the current column being calculated
+        query : str - the query sequence
+        reference : str - the reference sequence 
+        iters_left : int - the number of columns that the current processor has left to calculate 
+        cur_col_index : int - the index of the current column (for indexing the reference sequence)
+        diag : int - the value diagonal from the adjacency matrix position currently being calculated 
+        up : int - the value above the adjacency matrix position currently being calculated 
+        first_pass : bool - says if this is the first column the current process is calculating. Used for telling rank 1 if it should initalize left as 0 or recieve a value
+    """
+
 
     M = len(query)
     N = len(reference)
 
+    # tag = step + M * iters_left
+
     if step == M:
+
+        print(f"sending column {cur_col_index} to rank 0 from rank {rank}", col)
+        # print()
 
         comm.send(col, dest=0, tag=rank)
 
         # # if there are columns without processors, take over the next column
-        # if 
-        #     diagonal_wavefront(col, query, reference)
+        if iters_left > 1:
+            
+            iters_left -= 1
+            col = []
+            next_col_index = cur_col_index + (size-1) 
+            diagonal_wavefront(col, query, reference, iters_left, cur_col_index=next_col_index,  first_pass=False)
 
         return 
 
-    print(f"iteration number {len(col)} on rank {rank}")
+    # print(f"Step number {len(col)} on rank {rank} with {iters_left} iters left") # and tag of {step + M * iters_left}
 
     if rank == 1:
-        left = 0
+        if first_pass:
+            left = 0
+        else:
+            left = comm.recv(source=size-1, tag=step)
+            # print(f"Rank 1 recieving left from rank {size-1}. left={left}, tag={step}")
     else:
         left = comm.recv(source=rank-1, tag=step)
 
-    if query[step] == reference[rank - 1]:
+        # print(f"Rank {rank} recieving left from rank {rank-1}. left={left}, tag={step}")
+
+    if query[step] == reference[cur_col_index]:
         diag_adjustment = MATCH_REWARD
     else:
         diag_adjustment = MISMATCH_PENALTY
@@ -284,18 +341,25 @@ def diagonal_wavefront(col : list, query, reference, diag=0, up=0, step=0):
     up_adjust = max(0, up + GAP_PENALTY)
     left_adjust = max(0, left + GAP_PENALTY)
     
-    
     alignment_score = max(diag_adjust, up_adjust, left_adjust )
     col.append(alignment_score)
 
-    if rank < size - 1:
-        comm.send(alignment_score, dest=rank+1, tag=step)
+    # outer if statement accounts for the case where the number of processors is greater than the reference sequence length. 
+    if rank <= size - 1:
+
+        # if the current rank is the last one, send "left" back around to rank 1 
+        if rank == size-1: 
+            send_to = 1
+        else:
+            send_to = rank+1
+
+        comm.send(alignment_score, dest=send_to, tag=step)
 
     step += 1
 
-    diagonal_wavefront(col, query, reference, diag=left, up=alignment_score, step=step)
+    diagonal_wavefront(col, query, reference, iters_left=iters_left, cur_col_index=cur_col_index, diag=left, up=alignment_score, step=step, first_pass=first_pass)
 
-    ##################################################################################
+    #########################################################################################################################
 
 def smith_waterman(query, reference, verbose=True): 
     """
@@ -311,9 +375,7 @@ def smith_waterman(query, reference, verbose=True):
     
     if rank == 0:
 
-        print(alignment_matrix)
-
-        print_matrix(alignment_matrix, query, reference)
+        # print_matrix(alignment_matrix, query, reference)
 
         matrix_end = time.perf_counter()
         traceback_start = time.perf_counter()
@@ -343,11 +405,6 @@ def smith_waterman(query, reference, verbose=True):
 
 if __name__ == "__main__":
 
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-    
-
     # print("Rank: ", rank)
     # print("Size: ", size)
 
@@ -362,6 +419,9 @@ if __name__ == "__main__":
     smith_waterman(query="GGTTGACTA", reference="TGTTACGG")
 
     # print("Scaling Tests: ------------------------------------------ ")
+
+    # smith_waterman( rand_DNA(50), rand_DNA(50), verbose= False)
+
 
     #testing on random DNA sequences 
     # smith_waterman( rand_DNA(10), rand_DNA(10), verbose= False)
