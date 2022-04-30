@@ -7,7 +7,7 @@ from mpi4py import MPI
 GAP_PENALTY = -2
 
 # saw mixed messages for what these two values should be, went off wikipedias values: 
-MISMATCH_PENALTY = -3 
+MISMATCH_PENALTY = -3
 MATCH_REWARD = 3
 
 def print_matrix(alignment_matrix, query, reference):
@@ -88,65 +88,6 @@ def fill_alignment_matrix_diag(query, reference):
     return alignment_matrix
 
 
-def fill_alignment_matrix_mpi(query, reference):
-
-    M = len(query)
-    N = len(reference)
-
-    # alignment_matrix = np.zeros(shape=(M+1, N+1))
-
-    if rank != 0:
-
-        print("Call diagnonal_wavfront on rank ", rank)
-
-        col = []
-        diagonal_wavefront(col, query, reference)
-
-
-    if rank == 0:
-
-        alignment_lists = []
-        for p in range(1, size):
-
-            col = comm.recv(source=p, tag=p)
-
-            alignment_lists.append(col)
-
-        return np.array(alignment_lists)
-
-
-def diagonal_wavefront(col : list, query, reference, diag=0, up=0, step=0):
-
-    if step == len(query):
-
-        comm.send(col, dest=0, tag=rank)
-        return 
-
-    print(f"iteration number {len(col)} on rank {rank}")
-
-    if rank == 1:
-        left = 0
-    else:
-        left = comm.recv(source=rank-1, tag=step)
-
-    if query[step] == reference[rank - 1]:
-        diag_adjustment = MATCH_REWARD
-    else:
-        diag_adjustment = MISMATCH_PENALTY
-
-    diag = max(0, diag + diag_adjustment)
-    up = max(0, up + GAP_PENALTY)
-    left = max(0, left + GAP_PENALTY)
-    
-    alignment_score = max(diag, up, left )
-    col.append(alignment_score)
-
-    if rank < size - 1:
-        comm.send(alignment_score, dest=rank+1, tag=step)
-
-    step += 1
-
-    diagonal_wavefront(col, query, reference, diag=left, up=alignment_score, step=step)
 
 
 def next_movement(alignment_matrix, i, j, query, reference):
@@ -280,23 +221,103 @@ def traceback_iterative(alignment_matrix, position, aligned_query, aligned_ref, 
 
 
 
+####################################################################
+def fill_alignment_matrix_mpi(query, reference):
+
+    M = len(query)
+    N = len(reference)
+
+    # alignment_matrix = np.zeros(shape=(M+1, N+1))
+
+    if rank != 0 and rank <= N:
+
+        print("Call diagnonal_wavfront on rank ", rank)
+
+        col = []
+        diagonal_wavefront(col, query, reference)
+
+
+    if rank == 0:
+
+        alignment_lists = []
+        for p in range(1, N+1):
+
+            col = comm.recv(source=p, tag=p)
+
+            alignment_lists.append(col)
+
+            alignment_matrix = np.array(alignment_lists).T
+
+            alignment_matrix = np.pad(alignment_matrix, ((1, 0), (1, 0)), 'constant')
+
+        return alignment_matrix
+
+
+def diagonal_wavefront(col : list, query, reference, diag=0, up=0, step=0):
+
+    M = len(query)
+    N = len(reference)
+
+    if step == M:
+
+        comm.send(col, dest=0, tag=rank)
+
+        # # if there are columns without processors, take over the next column
+        # if 
+        #     diagonal_wavefront(col, query, reference)
+
+        return 
+
+    print(f"iteration number {len(col)} on rank {rank}")
+
+    if rank == 1:
+        left = 0
+    else:
+        left = comm.recv(source=rank-1, tag=step)
+
+    if query[step] == reference[rank - 1]:
+        diag_adjustment = MATCH_REWARD
+    else:
+        diag_adjustment = MISMATCH_PENALTY
+
+    diag_adjust = max(0, diag + diag_adjustment)
+    up_adjust = max(0, up + GAP_PENALTY)
+    left_adjust = max(0, left + GAP_PENALTY)
+    
+    
+    alignment_score = max(diag_adjust, up_adjust, left_adjust )
+    col.append(alignment_score)
+
+    if rank < size - 1:
+        comm.send(alignment_score, dest=rank+1, tag=step)
+
+    step += 1
+
+    diagonal_wavefront(col, query, reference, diag=left, up=alignment_score, step=step)
+
+    ##################################################################################
+
 def smith_waterman(query, reference, verbose=True): 
     """
     main function 
     """
 
-    total_start = time.perf_counter()
-    matrix_start = time.perf_counter()
+    if rank == 0:
+        total_start = time.perf_counter()
+        matrix_start = time.perf_counter()
 
     alignment_matrix = fill_alignment_matrix_mpi(query, reference) # compute alignment matrix 
 
-    print(alignment_matrix)
-    print_matrix(alignment_matrix, query, reference)
-
-    matrix_end = time.perf_counter()
-    traceback_start = time.perf_counter()
-
+    
     if rank == 0:
+
+        print(alignment_matrix)
+
+        print_matrix(alignment_matrix, query, reference)
+
+        matrix_end = time.perf_counter()
+        traceback_start = time.perf_counter()
+
         aligned_query, aligned_ref = traceback(alignment_matrix, query=query, reference=reference) # traceback 
 
         traceback_end = time.perf_counter()
@@ -325,6 +346,7 @@ if __name__ == "__main__":
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
+    
 
     # print("Rank: ", rank)
     # print("Size: ", size)
