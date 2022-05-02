@@ -85,55 +85,11 @@ def traceback(alignment_matrix, query, reference, recursive=False):
     # find the location of the largest score in the matrix (start from here)
     largest_score_pos = np.unravel_index(alignment_matrix.argmax(), alignment_matrix.shape)
 
-    # for large sequences, the max python recursive depth is reached so an iterative approach is prefered
-    if recursive:
-        traceback_recursive(alignment_matrix, largest_score_pos, aligned_query, aligned_ref, query, reference)
-
-    else:
-        # iteratively trace the alignment matrix back, appending the proper nucleotides to aligned_query and aligned_ref
-        traceback_iterative(alignment_matrix, largest_score_pos, aligned_query, aligned_ref, query, reference)
+    # iteratively trace the alignment matrix back, appending the proper nucleotides to aligned_query and aligned_ref
+    traceback_iterative(alignment_matrix, largest_score_pos, aligned_query, aligned_ref, query, reference)
 
     # print the final local sequence alignment
     return aligned_query, aligned_ref
-
-
-def traceback_recursion(alignment_matrix, position, aligned_query, aligned_ref, query, reference):
-    """
-    recursive implemention of the traceback function 
-    """
-
-    # Uncomment to debug route that traceback travels:
-    # print(position)
-
-    i, j = position
-
-    # base case, stop when you reach a 0 in the traceback
-    if alignment_matrix[i][j] == 0:
-        return
-
-    # determine where the current score came from, and trace it back that same way
-    alignment_score, movement = next_movement(alignment_matrix, i, j, query, reference)
-
-    # trace back to the left
-    if movement == 0:
-        aligned_query.append(query[i-1])
-        aligned_ref.append("-")
-        new_position = (i, j-1)
-
-    # traceback diagonally
-    if movement == 1:
-        aligned_query.append(query[i-1])
-        aligned_ref.append(query[i-1])
-        new_position = (i-1, j-1)
-
-    #traceback up 
-    if movement == 2:
-        aligned_query.append(query[i-1])
-        aligned_ref.append("-")
-        new_position = (i-1, j)
-
-    # recurse on new position 
-    traceback_recursion(alignment_matrix, new_position, aligned_query, aligned_ref, query, reference)
 
 def traceback_iterative(alignment_matrix, position, aligned_query, aligned_ref, query, reference):
     """
@@ -179,7 +135,7 @@ def traceback_iterative(alignment_matrix, position, aligned_query, aligned_ref, 
 
 
 
-def smith_waterman(query, reference, verbose=True): 
+def smith_waterman(query, reference, verbose=False): 
     """
     main function 
     """
@@ -229,7 +185,7 @@ if __name__ == "__main__":
     smith_waterman( rand_DNA(10), rand_DNA(10), verbose= False)
     smith_waterman( rand_DNA(100), rand_DNA(100), verbose= False)
     smith_waterman( rand_DNA(1000), rand_DNA(1000), verbose= False)
-    smith_waterman( rand_DNA(10000), rand_DNA(10000), verbose= False) # this takes about 6 min
+    # smith_waterman( rand_DNA(10000), rand_DNA(10000), verbose= False) # this takes about 6 min
 
 
 
