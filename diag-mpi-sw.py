@@ -279,6 +279,8 @@ def fill_alignment_matrix_mpi(query, reference):
 
         alignment_matrix = np.pad(alignment_matrix, ((1, 0), (1, 0)), 'constant')
 
+        #print("reached here")
+
         return alignment_matrix
 
 
@@ -300,13 +302,11 @@ def diagonal_wavefront(col : list, query : str, reference : str, iters_left, cur
     M = len(query)
     N = len(reference)
 
-    # tag = step + M * iters_left
-
-    # print(f"Step number {len(col)} on rank {rank} with {iters_left} iters left") # and tag of {step + M * iters_left}
     step = 0
     left = 0
     up = 0
     diag = 0
+
     
     while step <= M - 1: 
         if rank == 1:
@@ -332,6 +332,9 @@ def diagonal_wavefront(col : list, query : str, reference : str, iters_left, cur
         alignment_score = max(diag_adjust, up_adjust, left_adjust )
         col.append(alignment_score)
 
+        diag = left 
+        up = alignment_score
+
         # outer if statement accounts for the case where the number of processors is greater than the reference sequence length. 
         if rank <= size - 1:
 
@@ -342,11 +345,15 @@ def diagonal_wavefront(col : list, query : str, reference : str, iters_left, cur
                 send_to = rank+1
 
             comm.send(alignment_score, dest=send_to, tag=step)
+        #print("end")
         step += 1
-        
-    iters_left -= 1
+    
+
+    # tag = step + M * iters_left
+
     if step == M:
-        print(f"sending column {cur_col_index} to rank 0 from rank {rank}", col)
+
+        #print(f"sending column {cur_col_index} to rank 0 from rank {rank}", col)
         # print()
 
         comm.send(col, dest=0, tag=rank)
@@ -360,6 +367,8 @@ def diagonal_wavefront(col : list, query : str, reference : str, iters_left, cur
             diagonal_wavefront(col, query, reference, iters_left, cur_col_index=next_col_index,  first_pass=False)
 
         return 
+
+    # print(f"Step number {len(col)} on rank {rank} with {iters_left} iters left") # and tag of {step + M * iters_left}
 
     #########################################################################################################################
 
@@ -407,7 +416,7 @@ def smith_waterman(query, reference, verbose=True):
 
 if __name__ == "__main__":
 
-    # print("Rank: ", rank)
+    #print("Rank: ", rank)
     # print("Size: ", size)
 
     # smith_waterman(query="ATCG", reference="GCTA")
@@ -418,7 +427,7 @@ if __name__ == "__main__":
     # smith_waterman(query="AGCTAT", reference="ATGC")
 
     # test case from wikipedia: 
-    smith_waterman(query="GGTTGACTA", reference="TGTTACGG")
+    #smith_waterman(query="GGTTGACTA", reference="TGTTACGG")
 
     # print("Scaling Tests: ------------------------------------------ ")
 
@@ -427,17 +436,6 @@ if __name__ == "__main__":
 
     #testing on random DNA sequences 
     # smith_waterman( rand_DNA(10), rand_DNA(10), verbose= False)
-    # smith_waterman( rand_DNA(100), rand_DNA(100), verbose= False)
-    # smith_waterman( rand_DNA(1000), rand_DNA(1000), verbose= False)
+    # smith_waterman( rand_DNA(100), rand_DNA(100), verbose= True)
+    smith_waterman( rand_DNA(1000), rand_DNA(1000), verbose= True)
     # smith_waterman( rand_DNA(10000), rand_DNA(10000), verbose= False) # this takes about 6 min
-
-
-
-
-
-
-
-
-
-
-
