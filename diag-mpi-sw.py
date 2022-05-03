@@ -302,8 +302,50 @@ def diagonal_wavefront(col : list, query : str, reference : str, iters_left, cur
 
     # tag = step + M * iters_left
 
-    if step == M:
+    # print(f"Step number {len(col)} on rank {rank} with {iters_left} iters left") # and tag of {step + M * iters_left}
+    step = 0
+    left = 0
+    up = 0
+    diag = 0
+    
+    while step <= M - 1: 
+        if rank == 1:
+            if first_pass:
+                left = 0
+            else:
+                left = comm.recv(source=size-1, tag=step)
+                # print(f"Rank 1 recieving left from rank {size-1}. left={left}, tag={step}")
+        else:
+            left = comm.recv(source=rank-1, tag=step)
 
+            # print(f"Rank {rank} recieving left from rank {rank-1}. left={left}, tag={step}")
+
+        if query[step] == reference[cur_col_index]:
+            diag_adjustment = MATCH_REWARD
+        else:
+            diag_adjustment = MISMATCH_PENALTY
+
+        diag_adjust = max(0, diag + diag_adjustment)
+        up_adjust = max(0, up + GAP_PENALTY)
+        left_adjust = max(0, left + GAP_PENALTY)
+        
+        alignment_score = max(diag_adjust, up_adjust, left_adjust )
+        col.append(alignment_score)
+
+        # outer if statement accounts for the case where the number of processors is greater than the reference sequence length. 
+        if rank <= size - 1:
+
+            # if the current rank is the last one, send "left" back around to rank 1 
+            if rank == size-1: 
+                send_to = 1
+            else:
+                send_to = rank+1
+
+            comm.send(alignment_score, dest=send_to, tag=step)
+        step += 1
+        
+    iters_left -= 1
+    if step == M:
         print(f"sending column {cur_col_index} to rank 0 from rank {rank}", col)
         # print()
 
@@ -318,46 +360,6 @@ def diagonal_wavefront(col : list, query : str, reference : str, iters_left, cur
             diagonal_wavefront(col, query, reference, iters_left, cur_col_index=next_col_index,  first_pass=False)
 
         return 
-
-    # print(f"Step number {len(col)} on rank {rank} with {iters_left} iters left") # and tag of {step + M * iters_left}
-
-    if rank == 1:
-        if first_pass:
-            left = 0
-        else:
-            left = comm.recv(source=size-1, tag=step)
-            # print(f"Rank 1 recieving left from rank {size-1}. left={left}, tag={step}")
-    else:
-        left = comm.recv(source=rank-1, tag=step)
-
-        # print(f"Rank {rank} recieving left from rank {rank-1}. left={left}, tag={step}")
-
-    if query[step] == reference[cur_col_index]:
-        diag_adjustment = MATCH_REWARD
-    else:
-        diag_adjustment = MISMATCH_PENALTY
-
-    diag_adjust = max(0, diag + diag_adjustment)
-    up_adjust = max(0, up + GAP_PENALTY)
-    left_adjust = max(0, left + GAP_PENALTY)
-    
-    alignment_score = max(diag_adjust, up_adjust, left_adjust )
-    col.append(alignment_score)
-
-    # outer if statement accounts for the case where the number of processors is greater than the reference sequence length. 
-    if rank <= size - 1:
-
-        # if the current rank is the last one, send "left" back around to rank 1 
-        if rank == size-1: 
-            send_to = 1
-        else:
-            send_to = rank+1
-
-        comm.send(alignment_score, dest=send_to, tag=step)
-
-    step += 1
-
-    diagonal_wavefront(col, query, reference, iters_left=iters_left, cur_col_index=cur_col_index, diag=left, up=alignment_score, step=step, first_pass=first_pass)
 
     #########################################################################################################################
 
