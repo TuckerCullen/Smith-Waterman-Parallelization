@@ -1,7 +1,8 @@
 import numpy as np 
 import pandas as pd 
-from random import choice
+import random
 import time 
+import argparse
 from mpi4py import MPI
 
 GAP_PENALTY = -2
@@ -29,15 +30,10 @@ def print_matrix(alignment_matrix, query, reference):
 
     print(alignment_df)
 
-def rand_DNA(desired_length):
-    """ helper for generating random dna sequences """
-
-    DNA=""
-    for i in range(desired_length):
-
-        DNA += choice("CGTA")
-    
-    return DNA
+def rand_DNA(desired_length, chars = 'CGTA', seed = 0):
+    """ helper for generating random dna sequences """  
+    random.seed(seed)
+    return ''.join(random.choice(chars) for _ in range(desired_length))
 
 
 def fill_alignment_matrix(query, reference):
@@ -415,27 +411,16 @@ def smith_waterman(query, reference, verbose=True):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--length", "-l", type=int, default=10)
+    parser.add_argument("--seed", "-s", type=int, default=0)
+    parser.add_argument("--check", "-c", type=int, default=0)
 
-    #print("Rank: ", rank)
-    # print("Size: ", size)
+    args = parser.parse_args()
 
-    # smith_waterman(query="ATCG", reference="GCTA")
-
-    #test case from bioinformatica videos 
-    # smith_waterman(query="AGCT", reference="ATGCT")
-    
-    # smith_waterman(query="AGCTAT", reference="ATGC")
-
-    # test case from wikipedia: 
-    #smith_waterman(query="GGTTGACTA", reference="TGTTACGG")
-
-    # print("Scaling Tests: ------------------------------------------ ")
-
-    # smith_waterman( rand_DNA(50), rand_DNA(50), verbose= False)
-
-
-    #testing on random DNA sequences 
-    # smith_waterman( rand_DNA(10), rand_DNA(10), verbose= False)
-    # smith_waterman( rand_DNA(100), rand_DNA(100), verbose= True)
-    smith_waterman( rand_DNA(1000), rand_DNA(1000), verbose= True)
-    # smith_waterman( rand_DNA(10000), rand_DNA(10000), verbose= False) # this takes about 6 min
+    if args.check: 
+        smith_waterman(query="GGTTGACTA", reference="TGTTACGG", verbose=True)
+    else: 
+        seq1 = rand_DNA(args.length, seed = args.seed)
+        seq2 = rand_DNA(args.length, seed = args.seed)
+        smith_waterman(seq1, seq2, False)
