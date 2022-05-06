@@ -89,9 +89,6 @@ def fill_alignment_matrix_diag(query, reference):
             
     return alignment_matrix
 
-
-
-
 def next_movement(alignment_matrix, i, j, query, reference):
     """
     - given a position in the alignment_matrix, determines what the score should be and from where that score came from
@@ -129,55 +126,11 @@ def traceback(alignment_matrix, query, reference, recursive=False):
     # find the location of the largest score in the matrix (start from here)
     largest_score_pos = np.unravel_index(alignment_matrix.argmax(), alignment_matrix.shape)
 
-    # for large sequences, the max python recursive depth is reached so an iterative approach is prefered
-    if recursive:
-        traceback_recursive(alignment_matrix, largest_score_pos, aligned_query, aligned_ref, query, reference)
-
-    else:
-        # iteratively trace the alignment matrix back, appending the proper nucleotides to aligned_query and aligned_ref
-        traceback_iterative(alignment_matrix, largest_score_pos, aligned_query, aligned_ref, query, reference)
+    # iteratively trace the alignment matrix back, appending the proper nucleotides to aligned_query and aligned_ref
+    traceback_iterative(alignment_matrix, largest_score_pos, aligned_query, aligned_ref, query, reference)
 
     # print the final local sequence alignment
     return aligned_query, aligned_ref
-
-
-def traceback_recursion(alignment_matrix, position, aligned_query, aligned_ref, query, reference):
-    """
-    recursive implemention of the traceback function 
-    """
-
-    # Uncomment to debug route that traceback travels:
-    # print(position)
-
-    i, j = position
-
-    # base case, stop when you reach a 0 in the traceback
-    if alignment_matrix[i][j] == 0:
-        return
-
-    # determine where the current score came from, and trace it back that same way
-    alignment_score, movement = next_movement(alignment_matrix, i, j, query, reference)
-
-    # trace back to the left
-    if movement == 0:
-        aligned_query.append(query[i-1])
-        aligned_ref.append("-")
-        new_position = (i, j-1)
-
-    # traceback diagonally
-    if movement == 1:
-        aligned_query.append(query[i-1])
-        aligned_ref.append(query[i-1])
-        new_position = (i-1, j-1)
-
-    #traceback up 
-    if movement == 2:
-        aligned_query.append(query[i-1])
-        aligned_ref.append("-")
-        new_position = (i-1, j)
-
-    # recurse on new position 
-    traceback_recursion(alignment_matrix, new_position, aligned_query, aligned_ref, query, reference)
 
 def traceback_iterative(alignment_matrix, position, aligned_query, aligned_ref, query, reference):
     """
@@ -242,17 +195,23 @@ def fill_alignment_matrix_mpi(query, reference):
 
         # print("Call diagnonal_wavefront on rank ", rank)
 
-        # all the processors will need to run on "iters" number of columns. 
+        # some processors need to run one more time to finish up the last few columns 
         if rank <= leftovers:
             iters_left = iters + 1
-
-        # some processors need to run one more time to finish up the last few columns 
+        # all the processors will need to run on "iters" number of columns. 
         else:
             iters_left = iters
             
-        col = []
-        diagonal_wavefront(col, query, reference, cur_col_index=rank-1, iters_left=iters_left)
+        col_index = rank - 1
+        while iters_left > 0:
+            col = []
+            iters_left -= 1
 
+            if col_index == rank - 1:
+                diagonal_wavefront(col, query, reference, col_index, first_pass=True) 
+            else: 
+                diagonal_wavefront(col, query, reference, col_index, first_pass=False) 
+            col_index = col_index + (size-1) 
 
     if rank == 0:
 
@@ -280,7 +239,7 @@ def fill_alignment_matrix_mpi(query, reference):
         return alignment_matrix
 
 
-def diagonal_wavefront(col : list, query : str, reference : str, iters_left, cur_col_index, diag=0, up=0, step=0, first_pass=True):
+def diagonal_wavefront(col : list, query : str, reference : str, cur_col_index, first_pass=True):
 
     """
     Arguments:
@@ -351,17 +310,7 @@ def diagonal_wavefront(col : list, query : str, reference : str, iters_left, cur
 
         #print(f"sending column {cur_col_index} to rank 0 from rank {rank}", col)
         # print()
-
         comm.send(col, dest=0, tag=rank)
-
-        # # if there are columns without processors, take over the next column
-        if iters_left > 1:
-            
-            iters_left -= 1
-            col = []
-            next_col_index = cur_col_index + (size-1) 
-            diagonal_wavefront(col, query, reference, iters_left, cur_col_index=next_col_index,  first_pass=False)
-
         return 
 
     # print(f"Step number {len(col)} on rank {rank} with {iters_left} iters left") # and tag of {step + M * iters_left}
@@ -407,7 +356,6 @@ def smith_waterman(query, reference, verbose=True):
         print("Time for traceback -------------------: ", traceback_end - traceback_start)
         print("Total runtime ------------------------: ", total_end - total_start)
         print()
-
 
 
 if __name__ == "__main__":
