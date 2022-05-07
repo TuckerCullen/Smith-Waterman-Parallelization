@@ -245,6 +245,7 @@ def fill_alignment_matrix_mpi(query, reference):
     cols_per_proc = N // (size - 1)
     leftovers = N % (size - 1)
 
+
     if rank != 0 and rank <= N:
 
         if rank <= leftovers:
@@ -257,20 +258,41 @@ def fill_alignment_matrix_mpi(query, reference):
 
         # print(f"rank {rank} operating on subreference: {(start_ref_i, end_ref_i)}")
 
-        blocking(cols_per_proc, query=query, sub_reference=reference[ start_ref_i : end_ref_i])
+        blocking(cols_per_proc, query=query, sub_reference=reference[ start_ref_i : end_ref_i ])
+
+        return
 
 
     # recieve sub-matrices from each rank and concatenate 
     if rank == 0:
 
-        alignment_matrix = comm.recv(source=1, tag=1)
+        # the array recieved from rank 1 has an extra column (of zeros)
+        if 1 <= leftovers:
+            one_size = cols_per_proc + 2
+        else:
+            one_size = cols_per_proc + 1 
+
+        # must initialize empty buffer before recieving numpy array (M+1 accounts for first row of 0s)
+        alignment_matrix = np.empty((M + 1, one_size), dtype='i')
+
+        comm.Recv([alignment_matrix, MPI.INT], source=1, tag=1)
         
         # to account if there are more processors than columns 
         num_workers = min(size, N)
 
-        for worker_rank in range(2, num_workers+1):
+        for worker_rank in range(2, num_workers):
 
-            recieved_submatrix = comm.recv(source=worker_rank, tag=worker_rank)
+            if worker_rank <= leftovers:
+                worker_size = cols_per_proc + 1
+            else:
+                worker_size = cols_per_proc
+
+            # initialize buffer to be filled by Recv
+            recieved_submatrix = np.empty((M + 1, worker_size), dtype='i')
+
+            comm.Recv([recieved_submatrix, MPI.INT], source=worker_rank, tag=worker_rank)
+
+            # print(f"Recieved submatrix from rank {worker_rank}: ")
 
             alignment_matrix = np.concatenate((alignment_matrix, recieved_submatrix), axis=1)
 
@@ -282,7 +304,7 @@ def blocking(cols_per_proc, query, sub_reference):
     M = len(query)
     N = len(sub_reference)
 
-    sub_matrix = np.zeros(shape=(M+1, cols_per_proc+1))
+    sub_matrix = np.zeros(shape=(M+1, cols_per_proc+1), dtype='i')
 
     for i in range(1, M+1):
         if rank != 1:
@@ -298,8 +320,17 @@ def blocking(cols_per_proc, query, sub_reference):
 
     if rank != 1:
         sub_matrix = sub_matrix[:, 1:]
+        sub_matrix = np.ascontiguousarray(sub_matrix, dtype='i')
+
+    # print()
+    # print(f"Sub - matrix completed by rank {rank}: ")
+    # print(sub_matrix)
+    # print()
     
-    comm.send(sub_matrix, dest=0, tag=rank)
+    comm.Send([sub_matrix, MPI.INT], dest=0, tag=rank)
+
+    # print(f"Submatrix sent by rank {rank}")
+    return 
 
 
 def smith_waterman(query, reference, verbose=True): 
@@ -314,8 +345,6 @@ def smith_waterman(query, reference, verbose=True):
     alignment_matrix = fill_alignment_matrix_mpi(query, reference) # compute alignment matrix 
 
     if rank == 0:
-
-        # print_matrix(alignment_matrix, query, reference)
 
         matrix_end = time.perf_counter()
         traceback_start = time.perf_counter()
@@ -343,6 +372,7 @@ def smith_waterman(query, reference, verbose=True):
 
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--length", "-l", type=int, default=10)
     parser.add_argument("--seed", "-s", type=int, default=0)

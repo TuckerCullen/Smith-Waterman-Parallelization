@@ -1,7 +1,12 @@
 #!/bin/bash
 #SBATCH --constraint=knl
 #SBATCH --nodes=1
-#SBATCH --time=00:30:00
+#SBATCH --time=01:30:00
 
 # module load python
-srun -N 1 --ntasks-per-node=8 python diag-mpi-sw.py --length 10000 --seed 3
+echo "BLOCKING BENCHMARKING"
+
+srun -N 1 --ntasks-per-node=30 python diag-mpi-sw.py --length 10 --seed 1
+srun -N 1 --ntasks-per-node=30 python diag-mpi-sw.py --length 100 --seed 1
+srun -N 1 --ntasks-per-node=30 python diag-mpi-sw.py --length 1000 --seed 1
+srun -N 1 --ntasks-per-node=30 python diag-mpi-sw.py --length 10000 --seed 1
