@@ -278,7 +278,7 @@ def fill_alignment_matrix_mpi(query, reference):
         comm.Recv([alignment_matrix, MPI.INT], source=1, tag=1)
         
         # to account if there are more processors than columns 
-        num_workers = min(size, N)
+        num_workers = min(size, N+1)
 
         for worker_rank in range(2, num_workers):
 
@@ -295,6 +295,7 @@ def fill_alignment_matrix_mpi(query, reference):
             # print(f"Recieved submatrix from rank {worker_rank}: ")
 
             alignment_matrix = np.concatenate((alignment_matrix, recieved_submatrix), axis=1)
+        # print(alignment_matrix)
 
         return alignment_matrix
 
