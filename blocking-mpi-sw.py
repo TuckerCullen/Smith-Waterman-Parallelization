@@ -36,61 +36,6 @@ def rand_DNA(desired_length, chars = 'CGTA', seed = 0):
     return ''.join(random.choice(chars) for _ in range(desired_length))
 
 
-def fill_alignment_matrix(query, reference):
-    """
-    Creates the alignment matrix. 
-    """
-
-    M = len(query)
-    N = len(reference)
-
-    alignment_matrix = np.zeros(shape=(M+1, N+1))
-
-    for i in range(1, M+1):
-        for j in range(1, N+1):
-
-            print(i, j)
-
-            alignment_score, movement = next_movement(alignment_matrix, i, j, query, reference)
-
-            alignment_matrix[i][j] = alignment_score
-
-    return alignment_matrix
-
-
-def fill_alignment_matrix_diag(query, reference):
-    """
-    Fills the alignment matrix one diagonal at a time. 
-    """
-
-    M = len(query)
-    N = len(reference)
-
-    alignment_matrix = np.zeros(shape=(M+1, N+1))
-
-    for diag in range(1, (M+N)):
-
-        start_col = max(0, diag - M)
-
-        diag_len = min(diag, (N - start_col), M)
-
-        for k in range(0, diag_len):
-
-            i = min(M, diag) - k
-            j = start_col + k + 1
-
-            alignment_score, movement = next_movement(alignment_matrix, i, j, query, reference)
-
-            alignment_matrix[i][j] = alignment_score
-
-            # print( i , j, end='\t')
-        
-        # print("\n")
-            
-    return alignment_matrix
-
-
-
 
 def next_movement(alignment_matrix, i, j, query, reference):
     """
@@ -122,6 +67,17 @@ def next_movement(alignment_matrix, i, j, query, reference):
 
 
 def traceback(alignment_matrix, query, reference, recursive=False):
+    """ Given a complete alignment matrix, 
+
+    Args:
+        alignment_matrix (np.array): a filled-in alignment matrix (i.e. the output of fill_alignment_matrix)
+        query (str): the query sequence 
+        reference (str): the reference sequence
+        recursive (bool, optional): _description_. Defaults to False.
+
+    Returns:
+        (str, str): local alignments of the two strings
+    """
 
     aligned_query = []
     aligned_ref = []
@@ -292,10 +248,7 @@ def fill_alignment_matrix_mpi(query, reference):
 
             comm.Recv([recieved_submatrix, MPI.INT], source=worker_rank, tag=worker_rank)
 
-            # print(f"Recieved submatrix from rank {worker_rank}: ")
-
             alignment_matrix = np.concatenate((alignment_matrix, recieved_submatrix), axis=1)
-        # print(alignment_matrix)
 
         return alignment_matrix
 
@@ -323,11 +276,6 @@ def blocking(cols_per_proc, query, sub_reference):
         sub_matrix = sub_matrix[:, 1:]
         sub_matrix = np.ascontiguousarray(sub_matrix, dtype='i')
 
-    # print()
-    # print(f"Sub - matrix completed by rank {rank}: ")
-    # print(sub_matrix)
-    # print()
-    
     comm.Send([sub_matrix, MPI.INT], dest=0, tag=rank)
 
     # print(f"Submatrix sent by rank {rank}")
@@ -377,11 +325,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--length", "-l", type=int, default=10)
     parser.add_argument("--seed", "-s", type=int, default=0)
-    parser.add_argument("--check", "-c", type=int, default=0)
+    parser.add_argument("--test", "-t", type=int, default=0)
 
     args = parser.parse_args()
 
-    if args.check:
+    if args.test:
         smith_waterman(query="GGTTGACTA", reference="TGTTACGG", verbose=True)
     else: 
         seq1 = rand_DNA(args.length, seed = args.seed)

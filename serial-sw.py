@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd 
 from random import choice
 import time 
+import argparse
+import random
 
 GAP_PENALTY = -2
 
@@ -22,15 +24,11 @@ def print_matrix(alignment_matrix, query, reference):
 
     print(alignment_df)
 
-def rand_DNA(desired_length):
+def rand_DNA(desired_length, chars = 'CGTA', seed = 0):
     """ helper for generating random dna sequences """
 
-    DNA=""
-    for i in range(desired_length):
-
-        DNA += choice("CGTA")
-    
-    return DNA
+    random.seed(seed)
+    return ''.join(random.choice(chars) for _ in range(desired_length))
 
 
 def fill_alignment_matrix(query, reference):
@@ -221,20 +219,34 @@ def smith_waterman(query, reference, verbose=True):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--length", "-l", type=int, default=10)
+    parser.add_argument("--seed", "-s", type=int, default=0)
+    parser.add_argument("--test", "-t", type=int, default=0)
+    parser.add_argument("--query", "-q", type=str, default=None)
+    parser.add_argument("--reference", "-r", type=str, default=None)
 
-    #test case from bioinformatica videos 
-    # smith_waterman(query="AGCT", reference="ATGCT")
+    args = parser.parse_args()
+
+    if args.test:
+        # test case from wikipedia: https://en.wikipedia.org/wiki/Smith%E2%80%93Waterman_algorithm#/media/File:Smith-Waterman-Algorithm-Example-En.gif
+        smith_waterman(query="GGTTGACTA", reference="TGTTACGG", verbose=True)
+
+    elif args.query or args.reference:
+
+        if not args.query:
+            print("no query sequence supplied (use --query)")
+        elif not args.reference:
+            print("No reference sequence supplied (use --reference")
+        else:
+            smith_waterman(args.query, args.reference, verbose=True)
+
+    else: 
+        seq1 = rand_DNA(args.length, seed = args.seed)
+        seq2 = rand_DNA(args.length, seed = args.seed)
+        smith_waterman(seq1, seq2, False)
     
-    # test case from wikipedia: 
-    smith_waterman(query="GGTTGACTA", reference="TGTTACGG")
-
-    print("Scaling Tests: ------------------------------------------ ")
-
-    #testing on random DNA sequences 
-    smith_waterman( rand_DNA(10), rand_DNA(10), verbose= False)
-    smith_waterman( rand_DNA(100), rand_DNA(100), verbose= False)
-    smith_waterman( rand_DNA(1000), rand_DNA(1000), verbose= False)
-    smith_waterman( rand_DNA(10000), rand_DNA(10000), verbose= False) # this takes about 6 min
+    
 
 
 

@@ -30,66 +30,11 @@ def print_matrix(alignment_matrix, query, reference):
 
     print(alignment_df)
 
+
 def rand_DNA(desired_length, chars = 'CGTA', seed = 0):
     """ helper for generating random dna sequences """  
     random.seed(seed)
     return ''.join(random.choice(chars) for _ in range(desired_length))
-
-
-def fill_alignment_matrix(query, reference):
-    """
-    Creates the alignment matrix. 
-    """
-
-    M = len(query)
-    N = len(reference)
-
-    alignment_matrix = np.zeros(shape=(M+1, N+1))
-
-    for i in range(1, M+1):
-        for j in range(1, N+1):
-
-            print(i, j)
-
-            alignment_score, movement = next_movement(alignment_matrix, i, j, query, reference)
-
-            alignment_matrix[i][j] = alignment_score
-
-    return alignment_matrix
-
-
-def fill_alignment_matrix_diag(query, reference):
-    """
-    Fills the alignment matrix one diagonal at a time. 
-    """
-
-    M = len(query)
-    N = len(reference)
-
-    alignment_matrix = np.zeros(shape=(M+1, N+1))
-
-    for diag in range(1, (M+N)):
-
-        start_col = max(0, diag - M)
-
-        diag_len = min(diag, (N - start_col), M)
-
-        for k in range(0, diag_len):
-
-            i = min(M, diag) - k
-            j = start_col + k + 1
-
-            alignment_score, movement = next_movement(alignment_matrix, i, j, query, reference)
-
-            alignment_matrix[i][j] = alignment_score
-
-            # print( i , j, end='\t')
-        
-        # print("\n")
-            
-    return alignment_matrix
-
-
 
 
 def next_movement(alignment_matrix, i, j, query, reference):
@@ -122,6 +67,17 @@ def next_movement(alignment_matrix, i, j, query, reference):
 
 
 def traceback(alignment_matrix, query, reference, recursive=False):
+    """ Given a complete alignment matrix, 
+
+    Args:
+        alignment_matrix (np.array): a filled-in alignment matrix (i.e. the output of fill_alignment_matrix)
+        query (str): the query sequence 
+        reference (str): the reference sequence
+        recursive (bool, optional): _description_. Defaults to False.
+
+    Returns:
+        (str, str): local alignments of the two strings, 
+    """
 
     aligned_query = []
     aligned_ref = []
@@ -145,9 +101,6 @@ def traceback_recursion(alignment_matrix, position, aligned_query, aligned_ref, 
     """
     recursive implemention of the traceback function 
     """
-
-    # Uncomment to debug route that traceback travels:
-    # print(position)
 
     i, j = position
 
@@ -183,9 +136,6 @@ def traceback_iterative(alignment_matrix, position, aligned_query, aligned_ref, 
     """
     iteratively traceback through the matrix 
     """
-
-    # Uncomment to debug route that traceback travels:
-    # print(position)
 
     # you can't have a local alignment longer than the shortest of the two sequences 
     max_alignment_length = min(len(query), len(reference))
@@ -240,8 +190,6 @@ def fill_alignment_matrix_mpi(query, reference):
 
     if rank != 0 and rank <= N:
 
-        # print("Call diagnonal_wavefront on rank ", rank)
-
         # some processors need to run one more time to finish up the last few columns 
         if rank <= leftovers:
             iters_left = iters + 1
@@ -253,7 +201,6 @@ def fill_alignment_matrix_mpi(query, reference):
         while iters_left > 0:
             col = []
             iters_left -= 1
-            # print(f"rank {rank}, iters_left={iters_left}")
 
             if col_index == rank - 1:
                 diagonal_wavefront(col, query, reference, col_index, first_pass=True) 
@@ -294,13 +241,9 @@ def diagonal_wavefront(col : list, query : str, reference : str, cur_col_index, 
         col : list - the list of alignment scores for the current column being calculated
         query : str - the query sequence
         reference : str - the reference sequence 
-        iters_left : int - the number of columns that the current processor has left to calculate 
         cur_col_index : int - the index of the current column (for indexing the reference sequence)
-        diag : int - the value diagonal from the adjacency matrix position currently being calculated 
-        up : int - the value above the adjacency matrix position currently being calculated 
         first_pass : bool - says if this is the first column the current process is calculating. Used for telling rank 1 if it should initalize left as 0 or recieve a value
     """
-
 
     M = len(query)
     N = len(reference)
@@ -310,7 +253,6 @@ def diagonal_wavefront(col : list, query : str, reference : str, cur_col_index, 
     up = 0
     diag = 0
 
-    
     while step <= M - 1: 
         if rank == 1:
             if first_pass:
@@ -320,7 +262,6 @@ def diagonal_wavefront(col : list, query : str, reference : str, cur_col_index, 
                 # print(f"Rank 1 recieving left from rank {size-1}. left={left}, tag={step}")
         else:
             left = comm.recv(source=rank-1, tag=step)
-
             # print(f"Rank {rank} recieving left from rank {rank-1}. left={left}, tag={step}")
 
         if query[step] == reference[cur_col_index]:
@@ -332,7 +273,7 @@ def diagonal_wavefront(col : list, query : str, reference : str, cur_col_index, 
         up_adjust = max(0, up + GAP_PENALTY)
         left_adjust = max(0, left + GAP_PENALTY)
         
-        alignment_score = max(diag_adjust, up_adjust, left_adjust )
+        alignment_score = max(diag_adjust, up_adjust, left_adjust)
         col.append(alignment_score)
 
         diag = left 
@@ -351,17 +292,11 @@ def diagonal_wavefront(col : list, query : str, reference : str, cur_col_index, 
         #print("end")
         step += 1
     
-
-    # tag = step + M * iters_left
-
     if step == M:
-
-        #print(f"sending column {cur_col_index} to rank 0 from rank {rank}", col)
-        # print()
         comm.send(col, dest=0, tag=rank)
+        #print(f"sending column {cur_col_index} to rank 0 from rank {rank}", col)
         return 
 
-    # print(f"Step number {len(col)} on rank {rank} with {iters_left} iters left") # and tag of {step + M * iters_left}
 
     #########################################################################################################################
 
@@ -378,8 +313,6 @@ def smith_waterman(query, reference, verbose=True):
 
     
     if rank == 0:
-
-        # print_matrix(alignment_matrix, query, reference)
 
         matrix_end = time.perf_counter()
         traceback_start = time.perf_counter()
@@ -410,13 +343,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--length", "-l", type=int, default=10)
     parser.add_argument("--seed", "-s", type=int, default=0)
-    parser.add_argument("--check", "-c", type=int, default=0)
+    parser.add_argument("--test", "-t", type=int, default=0)
 
     args = parser.parse_args()
 
-    if args.check:
-        print(rank) 
+    if args.test:
         smith_waterman(query="GGTTGACTA", reference="TGTTACGG", verbose=True)
+
     else: 
         seq1 = rand_DNA(args.length, seed = args.seed)
         seq2 = rand_DNA(args.length, seed = args.seed)
