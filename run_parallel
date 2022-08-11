@@ -1,12 +1,27 @@
 #!/bin/bash
 #SBATCH --constraint=knl
 #SBATCH --nodes=1
-#SBATCH --time=01:30:00
+#SBATCH --time=00:30:00
 
 # module load python
-echo "BLOCKING BENCHMARKING"
+echo "BLOCKING IMPLEMENTATION ----------------------------------------"
 
-srun -N 1 --ntasks-per-node=30 python diag-mpi-sw.py --length 10 --seed 1
-srun -N 1 --ntasks-per-node=30 python diag-mpi-sw.py --length 100 --seed 1
-srun -N 1 --ntasks-per-node=30 python diag-mpi-sw.py --length 1000 --seed 1
-srun -N 1 --ntasks-per-node=30 python diag-mpi-sw.py --length 10000 --seed 1
+# running on the example from the SW wikipedia article
+srun -N 1 --ntasks-per-node=16 python blocking-mpi-sw.py --test 1
+
+# running on a custom query and reference sequence
+srun -N 1 --ntasks-per-node=16 python blocking-mpi-sw.py -q AGCGA -r ACGAA
+
+# running on a random 
+srun -N 1 --ntasks-per-node=16 python blocking-mpi-sw.py --length 10 --seed 1
+
+echo "DIAGONAL IMPLEMENTATION ---------------------------------------"
+
+# running on the example from the SW wikipedia article
+srun -N 1 --ntasks-per-node=16 python diag-mpi-sw.py --test 1
+
+# running on a custom query and reference sequence
+srun -N 1 --ntasks-per-node=16 python diag-mpi-sw.py -q AGCGA -r ACGAA
+
+# running on a random 
+srun -N 1 --ntasks-per-node=16 python diag-mpi-sw.py --length 10 --seed 1

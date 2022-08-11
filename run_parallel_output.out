@@ -1,0 +1,102 @@
+BLOCKING IMPLEMENTATION
+
+Query:  GGTTGACTA
+Reference:  TGTTACGG 
+
+      T  G  T  T   A   C   G  G
+   0  0  0  0  0   0   0   0  0
+G  0  0  3  1  0   0   0   3  3
+G  0  0  3  1  0   0   0   3  6
+T  0  3  1  6  4   2   0   1  4
+T  0  3  1  4  9   7   5   3  2
+G  0  1  6  4  7   6   4   8  6
+A  0  0  4  3  5  10   8   6  5
+C  0  0  2  1  3   8  13  11  9
+T  0  3  1  5  4   6  11  10  8
+A  0  1  0  3  2   7   9   8  7
+
+['C', 'A', 'G', 'T', 'T', 'G']
+['C', 'A', '-', 'T', 'T', 'G']
+
+Problem Size:  9  x  8
+Time to create fill alignment matrix -:  0.01734847400803119
+Time for traceback -------------------:  0.0018771589966490865
+Total runtime ------------------------:  0.019232382997870445
+
+
+Query:  AGCGA
+Reference:  ACGAA 
+
+      A  C  G   A  A
+   0  0  0  0   0  0
+A  0  3  1  0   3  3
+G  0  1  0  4   2  1
+C  0  0  4  2   1  0
+G  0  0  2  7   5  3
+A  0  3  1  5  10  8
+
+['A', 'G', 'C', 'G', 'A']
+['A', 'G', 'C', '-', 'A']
+
+Problem Size:  5  x  5
+Time to create fill alignment matrix -:  0.009544791013468057
+Time for traceback -------------------:  0.0013248680043034256
+Total runtime ------------------------:  0.01087448900216259
+
+
+Problem Size:  10  x  10
+Time to create fill alignment matrix -:  0.015082030004123226
+Time for traceback -------------------:  0.0028025440115015954
+Total runtime ------------------------:  0.017891633993713185
+
+DIAGONAL IMPLEMENTATION
+
+Query:  GGTTGACTA
+Reference:  TGTTACGG 
+
+      T  G  T  T   A   C   G  G
+   0  0  0  0  0   0   0   0  0
+G  0  0  3  1  0   0   0   3  3
+G  0  0  3  1  0   0   0   3  6
+T  0  3  1  6  4   2   0   1  4
+T  0  3  1  4  9   7   5   3  2
+G  0  1  6  4  7   6   4   8  6
+A  0  0  4  3  5  10   8   6  5
+C  0  0  2  1  3   8  13  11  9
+T  0  3  1  5  4   6  11  10  8
+A  0  1  0  3  2   7   9   8  7
+
+['C', 'A', 'G', 'T', 'T', 'G']
+['C', 'A', '-', 'T', 'T', 'G']
+
+Problem Size:  9  x  8
+Time to create fill alignment matrix -:  0.002276266022818163
+Time for traceback -------------------:  0.001100776979001239
+Total runtime ------------------------:  0.00338487297995016
+
+
+Query:  AGCGA
+Reference:  ACGAA 
+
+      A  C  G   A  A
+   0  0  0  0   0  0
+A  0  3  1  0   3  3
+G  0  1  0  4   2  1
+C  0  0  4  2   1  0
+G  0  0  2  7   5  3
+A  0  3  1  5  10  8
+
+['A', 'G', 'C', 'G', 'A']
+['A', 'G', 'C', '-', 'A']
+
+Problem Size:  5  x  5
+Time to create fill alignment matrix -:  0.0067812170018441975
+Time for traceback -------------------:  0.0005131690122652799
+Total runtime ------------------------:  0.007298965996596962
+
+
+Problem Size:  10  x  10
+Time to create fill alignment matrix -:  0.0048943709989544
+Time for traceback -------------------:  0.0010303379967808723
+Total runtime ------------------------:  0.00593113899230957
+

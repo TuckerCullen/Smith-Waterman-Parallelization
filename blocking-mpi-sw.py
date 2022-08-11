@@ -6,8 +6,6 @@ import argparse
 from mpi4py import MPI
 
 GAP_PENALTY = -2
-
-# saw mixed messages for what these two values should be, went off wikipedias values: 
 MISMATCH_PENALTY = -3
 MATCH_REWARD = 3
 
@@ -34,7 +32,6 @@ def rand_DNA(desired_length, chars = 'CGTA', seed = 0):
     """ helper for generating random dna sequences """  
     random.seed(seed)
     return ''.join(random.choice(chars) for _ in range(desired_length))
-
 
 
 def next_movement(alignment_matrix, i, j, query, reference):
@@ -182,16 +179,6 @@ def traceback_iterative(alignment_matrix, position, aligned_query, aligned_ref, 
 ###################################################################################
 ########################### PARALLEL FUNCITONS BELOW ##############################
 
-# 10 x 10 
-# 4 procs 
-# cols_per_proc = 2 leftovers = 2
-
-# rank * cols_per_proc + (leftovers - rank)
-
-# 1 - 3 : ref[0:3]  rank * cols_pert_proc = 3
-# 2 - 3 : ref[3:6]  rank * cols_pert_proc = 6
-# 3 - 2 : ref[6:8]  rank * cols_pert_proc = 6 -> 8
-# 4 - 2 : ref[8:10] rank * cols_pert_proc = 8 -> 10
 
 def fill_alignment_matrix_mpi(query, reference):
 
@@ -326,11 +313,23 @@ if __name__ == "__main__":
     parser.add_argument("--length", "-l", type=int, default=10)
     parser.add_argument("--seed", "-s", type=int, default=0)
     parser.add_argument("--test", "-t", type=int, default=0)
+    parser.add_argument("--query", "-q", type=str, default=None)
+    parser.add_argument("--reference", "-r", type=str, default=None)
 
     args = parser.parse_args()
 
     if args.test:
         smith_waterman(query="GGTTGACTA", reference="TGTTACGG", verbose=True)
+
+    elif args.query or args.reference:
+
+        if not args.query:
+            print("no query sequence supplied (use --query)")
+        elif not args.reference:
+            print("No reference sequence supplied (use --reference")
+        else:
+            smith_waterman(args.query, args.reference, verbose=True)
+
     else: 
         seq1 = rand_DNA(args.length, seed = args.seed)
         seq2 = rand_DNA(args.length, seed = args.seed)

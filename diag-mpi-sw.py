@@ -6,8 +6,6 @@ import argparse
 from mpi4py import MPI
 
 GAP_PENALTY = -2
-
-# saw mixed messages for what these two values should be, went off wikipedias values: 
 MISMATCH_PENALTY = -3
 MATCH_REWARD = 3
 
@@ -344,11 +342,22 @@ if __name__ == "__main__":
     parser.add_argument("--length", "-l", type=int, default=10)
     parser.add_argument("--seed", "-s", type=int, default=0)
     parser.add_argument("--test", "-t", type=int, default=0)
+    parser.add_argument("--query", "-q", type=str, default=None)
+    parser.add_argument("--reference", "-r", type=str, default=None)
 
     args = parser.parse_args()
 
     if args.test:
         smith_waterman(query="GGTTGACTA", reference="TGTTACGG", verbose=True)
+
+    elif args.query or args.reference:
+
+        if not args.query:
+            print("no query sequence supplied (use --query)")
+        elif not args.reference:
+            print("No reference sequence supplied (use --reference")
+        else:
+            smith_waterman(args.query, args.reference, verbose=True)
 
     else: 
         seq1 = rand_DNA(args.length, seed = args.seed)

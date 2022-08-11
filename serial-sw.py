@@ -6,8 +6,6 @@ import argparse
 import random
 
 GAP_PENALTY = -2
-
-# saw mixed messages for what these two values should be, went off wikipedias values: 
 MISMATCH_PENALTY = -3 
 MATCH_REWARD = 3
 
